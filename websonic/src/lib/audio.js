@@ -2,12 +2,26 @@ let audioContext;
 let masterGain;
 let currentSynth = 'sine';
 let bpm = 60;
+let fxChain = [];
+const impulseResponseCache = {};
+
+async function loadImpulseResponse(url) {
+  if (impulseResponseCache[url]) {
+    return impulseResponseCache[url];
+  }
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
+  impulseResponseCache[url] = decodedAudio;
+  return decodedAudio;
+}
 
 function getAudioContext() {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     masterGain = audioContext.createGain();
     masterGain.connect(audioContext.destination);
+    fxChain.push(masterGain);
   }
   if (audioContext.state === 'suspended') {
     audioContext.resume();
@@ -71,6 +85,85 @@ export function use_synth(synth) {
   currentSynth = synth;
 }
 
+function getCurrentFxNode() {
+    return fxChain[fxChain.length - 1];
+}
+
+export async function with_fx(fxName, options, fn) {
+    const context = getAudioContext();
+    let fxNode;
+
+    switch (fxName) {
+        case 'reverb': {
+            const { room = 0.7, mix = 0.5 } = options;
+            const impulseUrl = 'https://oramics.github.io/sampled/IR/Voxengo/samples/bottle_hall.wav';
+            const impulseBuffer = await loadImpulseResponse(impulseUrl);
+            
+            const convolver = context.createConvolver();
+            convolver.buffer = impulseBuffer;
+
+            const wetGain = context.createGain();
+            wetGain.gain.value = mix;
+
+            const dryGain = context.createGain();
+            dryGain.gain.value = 1 - mix;
+
+            const inputNode = context.createGain();
+            inputNode.connect(dryGain);
+            inputNode.connect(convolver);
+            convolver.connect(wetGain);
+
+            fxNode = inputNode;
+            const outputNode = context.createGain();
+            dryGain.connect(outputNode);
+            wetGain.connect(outputNode);
+            
+            const previousNode = getCurrentFxNode();
+            previousNode.disconnect();
+            previousNode.connect(fxNode);
+            outputNode.connect(masterGain);
+            fxChain.push(fxNode);
+
+            await fn();
+
+            fxChain.pop();
+            previousNode.disconnect();
+            previousNode.connect(getCurrentFxNode());
+            return;
+        }
+        case 'delay': {
+            const { time = 0.5, feedback = 0.5 } = options;
+            const delayNode = context.createDelay();
+            delayNode.delayTime.value = time;
+
+            const feedbackNode = context.createGain();
+            feedbackNode.gain.value = feedback;
+
+            delayNode.connect(feedbackNode);
+            feedbackNode.connect(delayNode);
+            
+            fxNode = delayNode;
+            break;
+        }
+        default:
+            console.error(`FX '${fxName}' not found.`);
+            await fn();
+            return;
+    }
+
+    const previousNode = getCurrentFxNode();
+    previousNode.disconnect();
+    previousNode.connect(fxNode);
+    fxNode.connect(masterGain); // Connect fx to master gain
+    fxChain.push(fxNode);
+
+    await fn();
+
+    fxChain.pop();
+    previousNode.disconnect();
+    previousNode.connect(getCurrentFxNode());
+}
+
 export function play(note, options = {}) {
   if (Array.isArray(note)) {
     note.forEach(n => play(n, options));
@@ -116,7 +209,7 @@ export function play(note, options = {}) {
   // Connections
   oscillator.connect(filter);
   filter.connect(gain);
-  gain.connect(masterGain);
+  gain.connect(getCurrentFxNode());
 
   // Start and Stop
   oscillator.start(now);
@@ -133,7 +226,7 @@ export function sample(name, options = {}) {
       const osc = context.createOscillator();
       const gain = context.createGain();
       osc.connect(gain);
-      gain.connect(masterGain);
+      gain.connect(getCurrentFxNode());
 
       osc.frequency.setValueAtTime(150, now);
       osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.1);
@@ -166,7 +259,7 @@ export function sample(name, options = {}) {
 
         noise.connect(noiseFilter);
         noiseFilter.connect(noiseGain);
-        noiseGain.connect(masterGain);
+        noiseGain.connect(getCurrentFxNode());
 
         const osc = context.createOscillator();
         osc.type = 'triangle';
@@ -177,7 +270,7 @@ export function sample(name, options = {}) {
         oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
 
         osc.connect(oscGain);
-        oscGain.connect(masterGain);
+        oscGain.connect(getCurrentFxNode());
 
         noise.start(now);
         noise.stop(now + 0.2);
@@ -206,7 +299,7 @@ export function sample(name, options = {}) {
 
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(masterGain);
+        gain.connect(getCurrentFxNode());
 
         noise.start(now);
         noise.stop(now + 0.05);

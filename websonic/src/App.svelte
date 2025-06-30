@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord } from './lib/audio.js';
+  import { play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx } from './lib/audio.js';
   import { choose, rrand } from './lib/random.js';
   import { ring, tick, look, reset_tick } from './lib/collections.js';
   import CodeMirror from 'svelte-codemirror-editor';
@@ -10,21 +10,22 @@
   import Resizer from './lib/Resizer.svelte';
 
   let code = `// Welcome to WebSonic!
+// All loops and sleeps must be async/await.
 use_bpm(120);
 
-// A loop for the drums
-loop(() => {
+live_loop('drums', async () => {
   sample('kick');
-  sleep(0.5);
+  await sleep(0.5);
   sample('snare');
-  sleep(0.5);
+  await sleep(0.5);
 });
 
-// A separate loop for the melody
-loop(() => {
-  use_synth('sawtooth');
-  play(rrand(60, 72), { release: 0.2 });
-  sleep(0.25);
+await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
+  live_loop('melody', async () => {
+    use_synth('sawtooth');
+    play(rrand(60, 72), { release: 0.2 });
+    await sleep(0.25);
+  });
 });
 `;
 
@@ -32,12 +33,18 @@ loop(() => {
   let volume = 0.5;
   let consoleMessages = [];
   let consoleHeight = 200;
+  const activeLoops = {};
 
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
 
   function logMessage(type, ...args) {
-    const content = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    const content = args.map(arg => {
+      if (arg instanceof Error) return arg.message;
+      if (typeof arg === 'object' && arg !== null) return JSON.stringify(arg);
+      return arg;
+    }).join(' ');
+    
     consoleMessages = [...consoleMessages, {
       type,
       content,
@@ -72,13 +79,16 @@ loop(() => {
 
   function stopCode() {
     isRunning = false;
+    for (const loop in activeLoops) {
+      activeLoops[loop] = false;
+    }
   }
 
   async function runCode() {
     if (isRunning) return;
     
     stopCode();
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 50)); // Grace period for loops to stop
 
     isRunning = true;
     consoleMessages = [];
@@ -104,37 +114,34 @@ loop(() => {
       console: {
         log: (...args) => logMessage('log', ...args)
       },
-      loop: (fn) => {
-        const runner = async () => {
-          if (!isRunning) return;
-          try {
-            await fn();
-            setTimeout(runner, 1);
-          } catch (e) {
-            if (e.message !== "stopped") {
-              logMessage('error', "Error in loop:", e);
+      with_fx,
+      live_loop: (name, fn) => {
+        activeLoops[name] = true;
+        (async () => {
+          while (isRunning && activeLoops[name]) {
+            try {
+              await fn();
+              await new Promise(resolve => setTimeout(resolve, 1)); 
+            } catch (e) {
+              if (e.message !== "stopped") {
+                logMessage('error', `Error in live_loop '${name}':`, e);
+              }
+              stopCode();
+              break;
             }
-            stopCode();
           }
-        };
-        runner();
-      },
-      with_fx: (name, opts, fn) => {
-        logMessage('log', `with_fx('${name}') is not yet supported in this version.`);
-        fn();
+        })();
       },
     };
 
     try {
-      // Automatically transform user code to be async-friendly
-      let transformedCode = code.replace(/loop\s*\(\s*\(\s*\)\s*=>/g, 'loop(async () =>');
-      transformedCode = transformedCode.replace(/(?<!await\s+)sleep\s*\(/g, 'await sleep(');
-
       const contextKeys = Object.keys(sandboxContext);
       const contextValues = Object.values(sandboxContext);
       const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-      const userCode = new AsyncFunction(...contextKeys, transformedCode);
+      const userCode = new AsyncFunction(...contextKeys, code);
+      
       await userCode(...contextValues);
+
     } catch (e) {
       logMessage('error', "Error executing code:", e);
       stopCode();
@@ -280,7 +287,7 @@ loop(() => {
 
   .editor-container {
     flex-grow: 1;
-    overflow: hidden;
+    overflow: auto;
   }
 
   :global(html, body) {
