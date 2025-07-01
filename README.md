@@ -2,6 +2,8 @@
 
 WebSonic is a web-based, live-coding music environment inspired by the amazing [Sonic Pi](https://sonic-pi.net/). It brings the joy of creating music with code to the browser, using the Web Audio API for sound synthesis and Svelte for a reactive user interface.
 
+It is still a toy project in early stages just to play with the audio api and gemini-cli. expect lots of bugs :x
+
 ![WebSonic Screenshot](./screenshot/websonic-mvp1.png)
 
 ## Features

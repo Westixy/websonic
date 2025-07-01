@@ -17,7 +17,7 @@ live_loop('hiss_loop', async () => {
 const hihat = async () => {
   use_synth('pnoise');
   await with_fx('hpf', { cutoff: 120 }, async () => {
-    play({ release: 0.01, amp: 13 });
+    play(0, { release: 0.01, amp: 13 });
   });
 };
 
@@ -43,12 +43,12 @@ live_loop('snare_loop', async () => {
 const bassdrum = async (note1, duration, note2 = note1) => {
   use_synth('sine');
   await with_fx('hpf', { cutoff: 100 }, async () => {
-    play({ note: note1 + 24, amp: 40, release: 0.01 });
+    play(note1 + 24, { amp: 40, release: 0.01 });
   });
   await with_fx('distortion', { distort: 0.1, mix: 0.3 }, async () => {
     await with_fx('lpf', { cutoff: 26 }, async () => {
       await with_fx('hpf', { cutoff: 55 }, async () => {
-        const bass = play({ note: note1, amp: 85, release: duration, note_slide: duration });
+        const bass = play(note1, { amp: 85, release: duration, note_slide: duration });
         control(bass, { note: note2 });
       });
     });
@@ -92,7 +92,7 @@ live_loop('chord_selector', async () => {
 const chord_player = (the_chord) => {
   use_synth('blade');
   the_chord.forEach((note) => {
-    play({ note, attack: rrand(0, 4), release: rrand(6, 8), cutoff: rrand(50, 85), vibrato_rate: rrand(0.01, 2), amp: 0.55 });
+    play(note, { attack: rrand(0, 4), release: rrand(6, 8), cutoff: rrand(50, 85), vibrato_rate: rrand(0.01, 2), amp: 0.55 });
   });
 };
 
@@ -103,6 +103,7 @@ with_fx('reverb', { room: 0.99, mix: 0.7 }, async () => {
     await sleep(8);
   });
 });
+
 
 // Coded by Pit Noack
 // supported by

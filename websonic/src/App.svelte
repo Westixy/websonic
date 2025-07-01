@@ -1,9 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import { 
-    play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx, 
+    play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, chord_degree, with_fx, 
     choose, rrand, ring, tick, look, reset_tick, rand, rand_i, use_random_seed, sync, set, get,
-    start, stop, live_loop, init
+    start, stop, live_loop, init, control
   } from 'websonic-engine';
   import CodeMirror from 'svelte-codemirror-editor';
   import { javascript } from '@codemirror/lang-javascript';
@@ -11,6 +11,7 @@
   import Console from './components/Console.svelte';
   import Resizer from './components/Resizer.svelte';
   import Examples from './components/Examples.svelte';
+  import { examples } from 'websonic-engine';
 
   let code = `// Welcome to WebSonic!
 // This example showcases many of the new features.
@@ -92,6 +93,27 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
       originalConsoleError(...args);
       logMessage('error', ...args);
     };
+
+    const loadExampleFromHash = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/example/')) {
+        const exampleName = hash.substring('#/example/'.length);
+        for (const category in examples) {
+          const example = examples[category].find(ex => ex.name === exampleName);
+          if (example) {
+            code = example.content;
+            break;
+          }
+        }
+      }
+    }
+
+    setTimeout(loadExampleFromHash, 0);
+    window.addEventListener('hashchange', loadExampleFromHash);
+
+    return () => {
+      window.removeEventListener('hashchange', loadExampleFromHash);
+    };
   });
 
   function handleVolumeChange(e) {
@@ -117,7 +139,8 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   }
 
   function handleExampleSelect(e) {
-    code = e.detail;
+    code = e.detail.content;
+    window.location.hash = `#/example/${e.detail.name}`;
     showExamples = false;
   }
 
@@ -153,6 +176,7 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
       },
       scale,
       chord,
+      chord_degree,
       choose,
       rrand,
       rand,
@@ -170,6 +194,7 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
       },
       with_fx,
       live_loop,
+      control,
     };
 
     try {
@@ -378,3 +403,5 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     box-sizing: border-box;
   }
 </style>
+
+

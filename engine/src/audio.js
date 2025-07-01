@@ -145,6 +145,7 @@ export async function with_fx(fxName, options, fn) {
 
     switch (fxName) {
         case 'reverb': {
+            // @ts-ignore
             const { room = 0.7, mix = 0.5 } = options; // Keep room for compatibility, though unused in new logic
             const impulseUrl = 'https://oramics.github.io/sampled/IR/Voxengo/samples/bottle_hall.wav';
             const impulseBuffer = await loadImpulseResponse(impulseUrl);
@@ -197,6 +198,17 @@ export async function with_fx(fxName, options, fn) {
             filterNode.connect(currentEntryPoint);
             break;
         }
+        case 'hpf': {
+            const { cutoff = 100, res = 0.5 } = options;
+            const filterNode = context.createBiquadFilter();
+            filterNode.type = 'highpass';
+            filterNode.frequency.value = cutoff;
+            filterNode.Q.value = res;
+            
+            fxInputNode = filterNode;
+            filterNode.connect(currentEntryPoint);
+            break;
+        }
         case 'echo': {
             const { time = 0.25, mix = 0.5 } = options;
             const delayNode = context.createDelay();
@@ -228,6 +240,40 @@ export async function with_fx(fxName, options, fn) {
 
             fxInputNode = panner;
             panner.connect(currentEntryPoint);
+            break;
+        }
+        case 'compressor': {
+            const { threshold = -24, knee = 30, ratio = 12, attack = 0.003, release = 0.25 } = options;
+            const compressorNode = context.createDynamicsCompressor();
+            compressorNode.threshold.value = threshold;
+            compressorNode.knee.value = knee;
+            compressorNode.ratio.value = ratio;
+            compressorNode.attack.value = attack;
+            compressorNode.release.value = release;
+
+            fxInputNode = compressorNode;
+            compressorNode.connect(currentEntryPoint);
+            break;
+        }
+        case 'distortion': {
+            const { distort = 0.5 } = options;
+            const distortionNode = context.createWaveShaper();
+            const amount = distort * 100;
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            let i = 0;
+            let x;
+            for ( ; i < n_samples; ++i ) {
+                x = i * 2 / n_samples - 1;
+                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+            }
+            distortionNode.curve = curve;
+            distortionNode.oversample = '4x';
+
+            fxInputNode = distortionNode;
+            distortionNode.connect(currentEntryPoint);
             break;
         }
         default:
@@ -268,18 +314,33 @@ export function play(note, options = {}) {
     return note.map(n => play(n, options));
   }
 
+  if (typeof note !== 'number' && typeof note !== 'string') {
+    console.error('Invalid note:', note);
+    return;
+  }
+
   const opts = { ...synthDefaults, ...options };
 
   const {
+    // @ts-ignore
     amp = 1,
+    // @ts-ignore
     attack = 0.01,
+    // @ts-ignore
     attack_level = 1,
+    // @ts-ignore
     decay = 0,
+    // @ts-ignore
     sustain = 0,
+    // @ts-ignore
     sustain_level = 1,
+    // @ts-ignore
     release = 1,
+    // @ts-ignore
     cutoff = 130, // MIDI note
+    // @ts-ignore
     pan = 0,
+    // @ts-ignore
     synth = currentSynth
   } = opts;
 

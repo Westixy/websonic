@@ -4,8 +4,8 @@
 
   const dispatch = createEventDispatcher();
 
-  function handleSelect(content) {
-    dispatch('select', content);
+  function handleSelect(example) {
+    dispatch('select', example);
   }
 </script>
 
@@ -17,7 +17,7 @@
       <ul>
         {#each examples as example}
           <li>
-            <button on:click={() => handleSelect(example.content)}>
+            <button on:click={() => handleSelect(example)}>
               {example.name}
             </button>
           </li>
