@@ -166,9 +166,13 @@ export function play(note, options = {}) {
   const {
     amp = 1,
     attack = 0.01,
+    attack_level = 1,
+    decay = 0,
     sustain = 0,
+    sustain_level = 1,
     release = 1,
     cutoff = 130, // MIDI note
+    pan = 0,
     synth = currentSynth
   } = options;
 
@@ -177,6 +181,7 @@ export function play(note, options = {}) {
   const oscillator = context.createOscillator();
   const filter = context.createBiquadFilter();
   const gain = context.createGain();
+  const panner = context.createStereoPanner();
 
   // Oscillator
   oscillator.type = synth;
@@ -186,122 +191,74 @@ export function play(note, options = {}) {
   filter.type = 'lowpass';
   filter.frequency.setValueAtTime(getFrequency(cutoff), now);
 
+  // Panner
+  panner.pan.setValueAtTime(pan, now);
+
   // ADSR Envelope
   const attackEnd = now + attack;
-  const sustainEnd = attackEnd + sustain;
+  const decayEnd = attackEnd + decay;
+  const sustainEnd = decayEnd + sustain;
   const releaseEnd = sustainEnd + release;
 
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(amp, attackEnd);
+  gain.gain.linearRampToValueAtTime(attack_level, attackEnd);
+  gain.gain.linearRampToValueAtTime(sustain_level, decayEnd);
   if (sustain > 0) {
-    gain.gain.setValueAtTime(amp, sustainEnd);
+    gain.gain.setValueAtTime(sustain_level, sustainEnd);
   }
   gain.gain.linearRampToValueAtTime(0, releaseEnd);
 
   // Connections
   oscillator.connect(filter);
   filter.connect(gain);
-  gain.connect(getCurrentFxNode());
+  gain.connect(panner);
+  panner.connect(getCurrentFxNode());
 
   // Start and Stop
   oscillator.start(now);
   oscillator.stop(releaseEnd);
 }
 
-export function sample(name, options = {}) {
+const sampleCache = {};
+
+async function loadSample(url, context) {
+  if (sampleCache[url]) {
+    return sampleCache[url];
+  }
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const decodedAudio = await context.decodeAudioData(arrayBuffer);
+  sampleCache[url] = decodedAudio;
+  return decodedAudio;
+}
+
+export async function sample(name, options = {}) {
   const context = getAudioContext();
   context.resume();
-  
+
   const now = context.currentTime;
-  const { amp = 1, release = 0.5 } = options;
+  const { amp = 1, pan = 0, start = 0, end = 1, rate = 1 } = options;
 
-  switch (name) {
-    case 'kick': {
-      const osc = context.createOscillator();
-      const gain = context.createGain();
-      osc.connect(gain);
-      gain.connect(getCurrentFxNode());
+  const buffer = await loadSample(name, context);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.rate = rate;
 
-      osc.frequency.setValueAtTime(150, now);
-      osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.1);
+  const panner = context.createStereoPanner();
+  panner.pan.setValueAtTime(pan, now);
 
-      gain.gain.setValueAtTime(1, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + release);
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(amp, now);
 
-      osc.start(now);
-      osc.stop(now + release);
-      break;
-    }
-    case 'snare': {
-        const noiseBuffer = context.createBuffer(1, context.sampleRate * 0.2, context.sampleRate);
-        const noiseOutput = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < noiseOutput.length; i++) {
-            noiseOutput[i] = Math.random() * 2 - 1;
-        }
+  source.connect(gain);
+  gain.connect(panner);
+  panner.connect(getCurrentFxNode());
 
-        const noise = context.createBufferSource();
-        noise.buffer = noiseBuffer;
+  const duration = buffer.duration;
+  const offset = start * duration;
+  const playDuration = (end - start) * duration;
 
-        const noiseFilter = context.createBiquadFilter();
-        noiseFilter.type = 'bandpass';
-        noiseFilter.frequency.value = 1500;
-        noiseFilter.Q.value = 1;
-
-        const noiseGain = context.createGain();
-        noiseGain.gain.setValueAtTime(amp, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(getCurrentFxNode());
-
-        const osc = context.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.value = 100;
-
-        const oscGain = context.createGain();
-        oscGain.gain.setValueAtTime(amp * 0.5, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-
-        osc.connect(oscGain);
-        oscGain.connect(getCurrentFxNode());
-
-        noise.start(now);
-        noise.stop(now + 0.2);
-        osc.start(now);
-        osc.stop(now + 0.1);
-        break;
-    }
-    case 'hat': {
-        const bufferSize = context.sampleRate * 0.1;
-        const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
-        const output = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1;
-        }
-
-        const noise = context.createBufferSource();
-        noise.buffer = buffer;
-
-        const filter = context.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.value = 10000;
-
-        const gain = context.createGain();
-        gain.gain.setValueAtTime(amp, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(getCurrentFxNode());
-
-        noise.start(now);
-        noise.stop(now + 0.05);
-        break;
-    }
-    default:
-      console.error(`Sample '${name}' not found.`);
-  }
+  source.start(now, offset, playDuration);
 }
 
 export function sleep(beats) {

@@ -4,7 +4,6 @@
   "description": "A live-coding music engine",
   "main": "src/index.js",
   "type": "module",
-  
   "scripts": {
     "test": "NODE_OPTIONS='--require ./tests/preload.cjs' node --test tests/",
     "start": "node src/index.js",
@@ -14,6 +13,8 @@
     "isomorphic-web-audio-api": "^1.0.0"
   },
   "devDependencies": {
+    "flac-bindings": "^4.1.0",
+    "node-web-audio-api": "^1.0.4",
     "sinon": "^14.0.0"
   }
 }

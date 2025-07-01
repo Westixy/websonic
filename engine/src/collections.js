@@ -14,9 +14,20 @@ export function ring(...args) {
       tickCounters[counterName]++;
       return val;
     },
+    get look() {
+      const counterName = 'default';
+      if (tickCounters[counterName] === undefined) {
+        tickCounters[counterName] = 0;
+      }
+      return this._arr[tickCounters[counterName] % this._arr.length];
+    },
     get: function(index) {
         const i = index % this._arr.length;
         return i < 0 ? this._arr[this._arr.length + i] : this._arr[i];
+    },
+    chain: function(...args) {
+        const newArr = this._arr.concat(...args);
+        return ring(...newArr);
     }
   };
 

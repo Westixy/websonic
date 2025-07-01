@@ -2,7 +2,8 @@
   import { onMount } from 'svelte';
   import { 
     play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx, 
-    choose, rrand, ring, tick, look, reset_tick, getContext, start, stop, live_loop, init
+    choose, rrand, ring, tick, look, reset_tick, rand, rand_i, use_random_seed, sync, set, get,
+    start, stop, live_loop, init
   } from 'websonic-engine';
   import CodeMirror from 'svelte-codemirror-editor';
   import { javascript } from '@codemirror/lang-javascript';
@@ -11,20 +12,39 @@
   import Resizer from './components/Resizer.svelte';
 
   let code = `// Welcome to WebSonic!
-// All loops and sleeps must be async/await.
+// This example showcases many of the new features.
+use_random_seed(10);
 use_bpm(120);
 
+set('melody', ring(60, 62, 64, 65, 67, 69, 71).chain(72, 71, 69, 67, 65, 64, 62));
+
 live_loop('drums', async () => {
-  sample('kick');
+  sample('/samples/kick.flac', { rate: 1, pan: -0.5 });
   await sleep(0.5);
-  sample('snare');
+  sample('/samples/kick.flac', { rate: 1.5, pan: 0.5 });
   await sleep(0.5);
 });
 
-await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
+live_loop('bass', async () => {
+  use_synth('tb303');
+  play(get('melody').look, { 
+    release: 0.2,
+    pan: rrand(-1, 1),
+    cutoff: rrand(60, 110),
+    attack: 0.01,
+    decay: 0.1,
+    sustain: 0.1,
+    attack_level: 1,
+    sustain_level: 0.4,
+  });
+  await sleep(0.25);
+});
+
+with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   live_loop('melody', async () => {
+    await sync('drums');
     use_synth('sawtooth');
-    play(rrand(60, 72), { release: 0.2 });
+    play(get('melody').look, { release: 0.2, pan: rrand(-1, 1) });
     await sleep(0.25);
   });
 });
@@ -104,12 +124,18 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
       use_bpm,
       sample: (name, options) => {
         logMessage('info', `[SAMPLE] name: ${name}, options: ${JSON.stringify(options)}`);
-        sample(name, options);
+        sample(window.location.origin + name, options);
       },
       scale,
       chord,
       choose,
       rrand,
+      rand,
+      rand_i,
+      use_random_seed,
+      sync,
+      set,
+      get,
       ring,
       tick,
       look,

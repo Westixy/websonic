@@ -1,10 +1,12 @@
+// engine/tests/mocks/isomorphic-web-audio-api.cjs
 const sinon = require('sinon');
-const pkg = require('isomorphic-web-audio-api');
 
-sinon.stub(pkg, 'AudioContext').callsFake(function() {
+// This is the mock AudioContext that will be used by the tests.
+const mockAudioContext = sinon.stub().callsFake(function() {
   return {
     createGain: () => ({
       connect: () => {},
+      disconnect: () => {},
       gain: {
         setValueAtTime: () => {},
         linearRampToValueAtTime: () => {},
@@ -29,17 +31,42 @@ sinon.stub(pkg, 'AudioContext').callsFake(function() {
         value: 0
       }
     }),
+    createStereoPanner: () => ({
+        connect: () => {},
+        pan: {
+            setValueAtTime: () => {}
+        }
+    }),
+    createConvolver: () => ({
+        connect: () => {},
+        buffer: null,
+    }),
     createBufferSource: () => ({
         connect: () => {},
         start: () => {},
         stop: () => {},
+        buffer: null,
+        rate: {
+            value: 1,
+        }
     }),
     createBuffer: () => ({
         getChannelData: () => []
     }),
     destination: {},
     currentTime: 0,
-    resume: () => {},
-    decodeAudioData: () => Promise.resolve({}),
+    sampleRate: 44100,
+    resume: () => Promise.resolve(),
+    decodeAudioData: () => Promise.resolve({
+        duration: 1.753, // Mock duration for loop_amen
+    }),
   };
 });
+
+global.fetch = sinon.stub().returns(Promise.resolve({
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+}));
+
+module.exports = {
+  AudioContext: mockAudioContext,
+};

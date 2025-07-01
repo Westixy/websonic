@@ -22,12 +22,14 @@ The `engine/` directory is a self-contained Node.js package responsible for all 
 -   **`package.json`**: Defines the package's dependencies, including `isomorphic-web-audio-api`.
 -   **`src/index.js`**: The main entry point for the engine, exporting all of its public functions. It also manages the `live_loop` functionality for concurrent musical patterns.
 -   **`src/audio.js`**: The core of the engine, this file handles audio synthesis, including:
-    -   **Synths**: `play()` function for generating sounds with oscillators (sine, square, sawtooth, triangle).
-    -   **Samples**: `sample()` function for playing pre-defined drum samples (kick, snare, hat).
+    -   **Synths**: `play()` function for generating sounds with oscillators (sine, square, sawtooth, triangle). It supports panning and advanced ADSR envelopes.
+    -   **Samples**: `sample()` function for playing audio files. It supports panning, partial playback, and rate control.
     -   **Effects**: `with_fx()` function for applying effects like reverb and delay.
     -   **Global Controls**: `setMasterVolume()` and `use_bpm()` for controlling the master volume and tempo.
--   **`src/collections.js`**: Provides data structures for creating musical patterns, such as `ring` (a circular array) and `tick` (a counter for the ring).
--   **`src/random.js`**: A set of utility functions for generating random numbers and shuffling arrays, useful for algorithmic composition.
+-   **`src/collections.js`**: Provides data structures for creating musical patterns, such as `ring` (a circular array) and `tick` (a counter for the ring). It also supports ring chains.
+-   **`src/random.js`**: A set of utility functions for generating random numbers and shuffling arrays, useful for algorithmic composition. It supports repeatable randomness with `use_random_seed`.
+-   **`src/sync.js`**: Provides `sync` and `event` functions for synchronizing live loops.
+-   **`src/state.js`**: Provides `set` and `get` functions for managing a global time-stamped state.
 -   **`src/getContext.js`**: A module that manages the `AudioContext`, ensuring a single instance is used throughout the application.
 -   **`tests/`**: Contains tests for the engine's functionality.
 
@@ -50,6 +52,7 @@ The `websonic/` directory contains the user-facing web application, built with S
     -   A **sandboxed environment** for executing the user's code, providing access to the `websonic-engine` functions.
 -   **`src/components/Console.svelte`**: A component that displays log messages from the running code.
 -   **`src/components/Resizer.svelte`**: A component that allows the user to resize the console.
+-   **`public/samples`**: A directory containing audio samples that can be used in the application.
 
 ---
 

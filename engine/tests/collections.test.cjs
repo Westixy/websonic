@@ -35,4 +35,10 @@ test('collections', async (t) => {
         reset_tick();
         assert.strictEqual(myRing.tick, 10);
     });
+
+    await t.test('ring.chain', () => {
+        const r1 = ring(1, 2, 3);
+        const r2 = r1.chain(4, 5, 6);
+        assert.deepStrictEqual(r2._arr, [1, 2, 3, 4, 5, 6]);
+    });
 });
