@@ -3,6 +3,7 @@ export * from './collections.js';
 export * from './random.js';
 export * from './sync.js';
 export * from './state.js';
+export * from './examples.js';
 export { getContext } from './getContext.js';
 
 import { init } from './audio.js';

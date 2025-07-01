@@ -6,4 +6,10 @@ export default defineConfig({
   plugins: [
     svelte()
   ],
+  publicDir: 'public',
+  server: {
+    fs: {
+      allow: ['..'],
+    },
+  },
 })
