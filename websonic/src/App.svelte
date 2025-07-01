@@ -10,6 +10,7 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import Console from './components/Console.svelte';
   import Resizer from './components/Resizer.svelte';
+  import Examples from './components/Examples.svelte';
 
   let code = `// Welcome to WebSonic!
 // This example showcases many of the new features.
@@ -52,8 +53,13 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
 
   let isUiRunning = false;
   let volume = 0.5;
+  let bpmValue = 120;
+  let synthValue = 'sawtooth';
   let consoleMessages = [];
   let consoleHeight = 200;
+  let showExamples = false;
+
+  const synths = ['sine', 'square', 'sawtooth', 'triangle', 'tb303', 'dsaw', 'fm', 'pulse', 'prophet', 'beep', 'hollow', 'blade', 'pnoise', 'mod_fm', 'mod_dsaw', 'mod_pulse', 'mod_saw', 'zawa', 'rodeo'];
 
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
@@ -75,6 +81,8 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   onMount(() => {
     init();
     setMasterVolume(volume);
+    use_bpm(bpmValue);
+    use_synth(synthValue);
     // Override console methods to capture logs
     console.log = (...args) => {
       originalConsoleLog(...args);
@@ -91,11 +99,26 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     setMasterVolume(volume);
   }
 
+  function handleBpmChange(e) {
+    bpmValue = e.target.value;
+    use_bpm(bpmValue);
+  }
+
+  function handleSynthChange(e) {
+    synthValue = e.target.value;
+    use_synth(synthValue);
+  }
+
   function handleResize(e) {
     const newHeight = window.innerHeight - e.detail.y;
     if (newHeight > 50 && newHeight < window.innerHeight - 100) {
       consoleHeight = newHeight;
     }
+  }
+
+  function handleExampleSelect(e) {
+    code = e.detail;
+    showExamples = false;
   }
 
   async function runCode() {
@@ -107,6 +130,8 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     
     start();
     setMasterVolume(volume);
+    use_bpm(bpmValue);
+    use_synth(synthValue);
     isUiRunning = true;
     consoleMessages = [];
     reset_tick();
@@ -165,12 +190,18 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
 
 <main>
   <header>
-    <h1>WebSonic</h1>
+    <div class="logo-container">
+      <img src="/logo.png" alt="WebSonic Logo" />
+      <h1>WebSonic</h1>
+    </div>
     <div class="controls">
+      <button on:click={() => showExamples = !showExamples}>
+        {showExamples ? 'Hide Examples' : 'Show Examples'}
+      </button>
       <button on:click={runCode} class:running={isUiRunning}>
         {isUiRunning ? '■ Stop' : '▶ Run'}
       </button>
-      <div class="volume-control">
+      <div class="control-group">
         <label for="volume">Volume</label>
         <input 
           type="range" 
@@ -182,22 +213,32 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
           on:input={handleVolumeChange}
         />
       </div>
+      <a href="https://github.com/Westixy/websonic" target="_blank" rel="noopener noreferrer">
+        <img src="/github-logo.svg" alt="GitHub" class="github-logo" />
+      </a>
     </div>
   </header>
-  <div class="editor-container">
-    <CodeMirror
-      bind:value={code}
-      lang={javascript()}
-      theme={oneDark}
-      styles={{
-        '&': {
-          height: '100%',
-        },
-        '.cm-scroller': {
-          overflow: 'auto',
-        }
-      }}
-    />
+  <div class="main-container">
+    {#if showExamples}
+      <div class="examples-panel">
+        <Examples on:select={handleExampleSelect} />
+      </div>
+    {/if}
+    <div class="editor-container">
+      <CodeMirror
+        bind:value={code}
+        lang={javascript()}
+        theme={oneDark}
+        styles={{
+          '&': {
+            height: '100%',
+          },
+          '.cm-scroller': {
+            overflow: 'auto',
+          }
+        }}
+      />
+    </div>
   </div>
   <Resizer on:move={handleResize} />
   <div style="height: {consoleHeight}px;">
@@ -232,6 +273,16 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     background-color: var(--editor-background);
   }
 
+  .logo-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo-container img {
+    height: 2rem;
+  }
+
   h1 {
     margin: 0;
     font-size: 1.5rem;
@@ -242,6 +293,12 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     display: flex;
     align-items: center;
     gap: 1rem;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   button {
@@ -265,16 +322,10 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     color: var(--background-color);
   }
 
-  .volume-control {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
-    width: 150px;
+    width: 100px;
     height: 8px;
     background: var(--background-color);
     border-radius: 5px;
@@ -297,6 +348,22 @@ with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     background: var(--primary-color);
     border-radius: 50%;
     cursor: pointer;
+  }
+
+  .github-logo {
+    height: 1.5rem;
+    filter: invert(1);
+  }
+
+  .main-container {
+    display: flex;
+    flex-grow: 1;
+    overflow: hidden;
+  }
+
+  .examples-panel {
+    width: 300px;
+    border-right: 1px solid var(--border-color);
   }
 
   .editor-container {
