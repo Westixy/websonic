@@ -1,3 +1,5 @@
+import { AudioContext } from 'isomorphic-web-audio-api';
+
 let audioContext;
 let masterGain;
 let currentSynth = 'sine';
@@ -16,9 +18,9 @@ async function loadImpulseResponse(url) {
   return decodedAudio;
 }
 
-function getAudioContext() {
+export function getAudioContext() {
   if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext = new AudioContext();
     masterGain = audioContext.createGain();
     masterGain.connect(audioContext.destination);
     fxChain.push(masterGain);
@@ -312,5 +314,11 @@ export function sample(name, options = {}) {
 
 export function sleep(beats) {
   const seconds = (60 / bpm) * beats;
-  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  if (typeof window !== 'undefined') {
+    // Browser environment
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  } else {
+    // Node.js environment
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  }
 }

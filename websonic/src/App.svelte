@@ -1,13 +1,15 @@
 <script>
   import { onMount } from 'svelte';
-  import { play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx } from './lib/audio.js';
-  import { choose, rrand } from './lib/random.js';
-  import { ring, tick, look, reset_tick } from './lib/collections.js';
+  import { 
+    play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx, 
+    choose, rrand, ring, tick, look, reset_tick, getAudioContext,
+    start, stop, live_loop
+  } from 'websonic-engine';
   import CodeMirror from 'svelte-codemirror-editor';
   import { javascript } from '@codemirror/lang-javascript';
   import { oneDark } from '@codemirror/theme-one-dark';
-  import Console from './lib/Console.svelte';
-  import Resizer from './lib/Resizer.svelte';
+  import Console from './components/Console.svelte';
+  import Resizer from './components/Resizer.svelte';
 
   let code = `// Welcome to WebSonic!
 // All loops and sleeps must be async/await.
@@ -29,11 +31,11 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
 });
 `;
 
-  let isRunning = false;
+  let isUiRunning = false;
   let volume = 0.5;
   let consoleMessages = [];
   let consoleHeight = 200;
-  const activeLoops = {};
+  let audioContextStarted = false;
 
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
@@ -53,7 +55,6 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   }
 
   onMount(() => {
-    setMasterVolume(volume);
     // Override console methods to capture logs
     console.log = (...args) => {
       originalConsoleLog(...args);
@@ -77,32 +78,39 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     }
   }
 
-  function stopCode() {
-    isRunning = false;
-    for (const loop in activeLoops) {
-      activeLoops[loop] = false;
-    }
-  }
-
   async function runCode() {
-    if (isRunning) return;
-    
-    stopCode();
-    await new Promise(resolve => setTimeout(resolve, 50)); // Grace period for loops to stop
+    if (!audioContextStarted) {
+      getAudioContext();
+      setMasterVolume(volume);
+      audioContextStarted = true;
+    }
 
-    isRunning = true;
+    if (isUiRunning) {
+      stop();
+      isUiRunning = false;
+      return;
+    }
+    
+    start();
+    isUiRunning = true;
     consoleMessages = [];
     reset_tick();
 
     const sandboxContext = {
-      play,
-      sleep: async (beats) => {
-        if (!isRunning) throw new Error("stopped");
-        await sleep(beats);
+      play: (note, options) => {
+        logMessage('info', `[PLAY] note: ${note}, options: ${JSON.stringify(options)}`);
+        play(note, options);
       },
-      use_synth,
+      sleep,
+      use_synth: (synth) => {
+        logMessage('info', `[SYNTH] using: ${synth}`);
+        use_synth(synth);
+      },
       use_bpm,
-      sample,
+      sample: (name, options) => {
+        logMessage('info', `[SAMPLE] name: ${name}, options: ${JSON.stringify(options)}`);
+        sample(name, options);
+      },
       scale,
       chord,
       choose,
@@ -115,23 +123,7 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
         log: (...args) => logMessage('log', ...args)
       },
       with_fx,
-      live_loop: (name, fn) => {
-        activeLoops[name] = true;
-        (async () => {
-          while (isRunning && activeLoops[name]) {
-            try {
-              await fn();
-              await new Promise(resolve => setTimeout(resolve, 1)); 
-            } catch (e) {
-              if (e.message !== "stopped") {
-                logMessage('error', `Error in live_loop '${name}':`, e);
-              }
-              stopCode();
-              break;
-            }
-          }
-        })();
-      },
+      live_loop,
     };
 
     try {
@@ -144,7 +136,8 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
 
     } catch (e) {
       logMessage('error', "Error executing code:", e);
-      stopCode();
+      stop();
+      isUiRunning = false;
     }
   }
 </script>
@@ -153,8 +146,8 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   <header>
     <h1>WebSonic</h1>
     <div class="controls">
-      <button on:click={isRunning ? stopCode : runCode} class:running={isRunning}>
-        {isRunning ? '■ Stop' : '▶ Run'}
+      <button on:click={runCode} class:running={isUiRunning}>
+        {isUiRunning ? '■ Stop' : '▶ Run'}
       </button>
       <div class="volume-control">
         <label for="volume">Volume</label>

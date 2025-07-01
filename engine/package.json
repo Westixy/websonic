@@ -1,0 +1,19 @@
+{
+  "name": "websonic-engine",
+  "version": "1.0.0",
+  "description": "A live-coding music engine",
+  "main": "src/index.js",
+  "type": "module",
+  
+  "scripts": {
+    "test": "NODE_OPTIONS='--require ./tests/preload.cjs' node --test tests/",
+    "start": "node src/index.js",
+    "cli": "nix-shell --run \"node run-cli.js\""
+  },
+  "dependencies": {
+    "isomorphic-web-audio-api": "^1.0.0"
+  },
+  "devDependencies": {
+    "sinon": "^14.0.0"
+  }
+}
