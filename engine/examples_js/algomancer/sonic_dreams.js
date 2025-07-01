@@ -96,8 +96,8 @@ const play_all_synths = async () => {
         console.log(shuffle("0".repeat(30 - t) + ("1".repeat(t))));
         const co = cutoffs[t % cutoffs.length] + (t * 2);
         for (let i = 0; i < 7; i++) {
-          const n = choose(chord(['e2', 'e3', 'e4', 'e5'][t], 'minor'));
-          await play_synths(synth, co, n);
+          const synth_notes = choose(chord(['e2', 'e3', 'e4', 'e5'][t], 'minor'));
+          await play_synths(synth, co, synth_notes);
         }
         await sleep(2);
         synths.push(synths.shift());

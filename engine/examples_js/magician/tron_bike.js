@@ -1,14 +1,14 @@
 // Coded by Sam Aaron
 
 use_random_seed(10);
-const notes = ring('b1', 'b2', 'e1', 'e2', 'b3', 'e3');
+const note_choices = ring('b1', 'b2', 'e1', 'e2', 'b3', 'e3');
 
 live_loop('tron', async () => {
   use_synth('dsaw');
   with_fx('slicer', { phase: choose([0.25, 0.125]) }, async () => {
     with_fx('reverb', { room: 0.5, mix: 0.3 }, async () => {
-      const n1 = choose(chord(notes.tick, 'minor'));
-      const n2 = choose(chord(notes.tick, 'minor'));
+      const n1 = choose(chord(note_choices.tick, 'minor'));
+      const n2 = choose(chord(note_choices.tick, 'minor'));
 
       const p = play({
         note: n1,

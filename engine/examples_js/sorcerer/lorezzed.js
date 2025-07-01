@@ -1,7 +1,7 @@
 // Coded by Sam Aaron
 
 use_bpm(50);
-const notes = (scale('c1', 'minor_pentatonic', { num_octaves: 1 })).shuffle();
+const lorezzed_notes = (scale('c1', 'minor_pentatonic', { num_octaves: 1 })).shuffle();
 
 live_loop('lorezzed', async () => {
   with_fx('compressor', { pan: -0.3, amp: 2 }, async () => {
@@ -13,7 +13,7 @@ live_loop('lorezzed', async () => {
         const s = play({ synth: 'dsaw', note: 'c3', sustain: 4, note_slide: t, release: 0 });
         for (let i = 0; i < 7; i++) {
           await sleep(0.25);
-          control(s, { note: notes.tick });
+          control(s, { note: lorezzed_notes.tick });
         }
       });
     });

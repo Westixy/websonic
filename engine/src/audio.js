@@ -143,6 +143,18 @@ export async function with_fx(fxName, options, fn) {
             delayNode.connect(currentEntryPoint);
             break;
         }
+        case 'lpf':
+        case 'rlpf': {
+            const { cutoff = 100, res = 0.5 } = options;
+            const filterNode = context.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            filterNode.frequency.value = cutoff;
+            filterNode.Q.value = res;
+            
+            fxInputNode = filterNode;
+            filterNode.connect(currentEntryPoint);
+            break;
+        }
         default:
             console.error(`FX '${fxName}' not found.`);
             await fn();
