@@ -50,3 +50,36 @@ export function look(name = 'default') {
 export function reset_tick(name = 'default') {
     tickCounters[name] = 0;
 }
+
+export function reset_tick_all() {
+    for (const key in tickCounters) {
+        tickCounters[key] = 0;
+    }
+}
+
+export function line(start, end, options = {}) {
+  const steps = options.steps || 1;
+  const arr = [];
+  for (let i = 0; i < steps; i++) {
+    arr.push(start + (end - start) * (i / (steps - 1)));
+  }
+  return ring(...arr);
+}
+
+export function range(start, end, step = 1) {
+  const arr = [];
+  for (let i = start; i < end; i += step) {
+    arr.push(i);
+  }
+  return ring(...arr);
+}
+
+export function knit(...args) {
+  const arr = [];
+  for (let i = 0; i < args.length; i += 2) {
+    for (let j = 0; j < args[i + 1]; j++) {
+      arr.push(args[i]);
+    }
+  }
+  return ring(...arr);
+}

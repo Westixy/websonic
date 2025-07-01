@@ -10,7 +10,7 @@ const cmaster1 = 130;
 const cmaster2 = 130;
 
 const pattern = (p) => {
-  return p.ring.tick() === "x";
+  return ring(...p.split('')).tick === "x";
 };
 
 live_loop('kick', async () => {
@@ -44,7 +44,7 @@ with_fx('reverb', { mix: 0.2 }, async () => {
       await sync('met1');
       // stop
       const a = 0.75;
-      const p = [-0.3, 0.3].choose();
+      const p = choose([-0.3, 0.3]);
       if (pattern("x-x-x-x-x-x-x-x-xxx-x-x-x-x-x-x-")) {
         sample('/samples/drum_cymbal_closed.flac', { amp: a, rate: 2.5, finish: 0.5, pan: p, cutoff: cmaster2 });
       }
@@ -84,17 +84,17 @@ with_fx('reverb', { mix: 0.7 }, async () => {
 with_fx('reverb', { mix: 0.7 }, async () => {
   live_loop('arp', async () => {
     await sync('met1');
-    with_fx('echo', { phase: 1, mix: (line(0.1, 1, { steps: 128 })).mirror().tick() }, async () => {
+    with_fx('echo', { phase: 1, mix: line(0.1, 1, { steps: 128 }).mirror().tick }, async () => {
       // stop
       const a = 0.6;
       const r = 0.25;
       const c = 130;
-      const p = (line(-0.7, 0.7, { steps: 64 })).mirror().tick();
+      const p = line(-0.7, 0.7, { steps: 64 }).mirror().tick;
       const at = 0.01;
       use_synth('beep');
       tick();
-      const notes = (scale('g4', 'major_pentatonic')).shuffle();
-      play(notes.look(), { amp: a, release: r, cutoff: c, pan: p, attack: at });
+      const notes = shuffle(scale('g4', 'major_pentatonic'));
+      play(notes.look, { amp: a, release: r, cutoff: c, pan: p, attack: at });
       await sleep(0.75);
     });
   });

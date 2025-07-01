@@ -5,6 +5,7 @@ let currentSynth = 'sine';
 let bpm = 60;
 let fxChain = [];
 const impulseResponseCache = {};
+const activeNodes = {};
 
 async function loadImpulseResponse(url) {
   if (impulseResponseCache[url]) {
@@ -61,14 +62,35 @@ const chords = {
   // Add more chords here
 };
 
+let transpose = 0;
+
+export function use_transpose(val) {
+  transpose = val;
+}
+
 function getFrequency(note) {
   if (typeof note === 'string') {
     return noteToFreq[note.toUpperCase()] || 440;
   }
   if (typeof note === 'number') {
-    return Math.pow(2, (note - 69) / 12) * 440;
+    return Math.pow(2, (note + transpose - 69) / 12) * 440;
   }
   return note;
+}
+
+export function note(name, options = {}) {
+  const noteMap = {
+    'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11
+  };
+  const accidentalMap = {
+    '#': 1,
+    'b': -1,
+  };
+  const octave = options.octave || 4;
+  const accidental = accidentalMap[name[1]] || 0;
+  const noteName = name[0].toUpperCase();
+  const noteVal = noteMap[noteName];
+  return 12 * (octave + 1) + noteVal + accidental;
 }
 
 export function scale(rootNote, scaleName, numOctaves = 1) {
@@ -87,8 +109,28 @@ export function chord(rootNote, chordName) {
   return chordIntervals.map(interval => rootNote + interval);
 }
 
+export function chord_degree(degree, key, scaleName, num_octaves = 1, options = {}) {
+  const notes = scale(note(key), scaleName, num_octaves);
+  const root = notes[degree - 1];
+  const chord_notes = chord(root, options.chord || 'major');
+  if (options.invert) {
+    const inverted = [];
+    for (let i = 0; i < chord_notes.length; i++) {
+      inverted.push(chord_notes[(i + options.invert) % chord_notes.length]);
+    }
+    return inverted;
+  }
+  return chord_notes;
+}
+
+let synthDefaults = {};
+
 export function use_synth(synth) {
   currentSynth = synth;
+}
+
+export function use_synth_defaults(options) {
+  synthDefaults = options;
 }
 
 function getCurrentFxNode() {
@@ -155,6 +197,39 @@ export async function with_fx(fxName, options, fn) {
             filterNode.connect(currentEntryPoint);
             break;
         }
+        case 'echo': {
+            const { time = 0.25, mix = 0.5 } = options;
+            const delayNode = context.createDelay();
+            delayNode.delayTime.value = time;
+
+            const feedbackNode = context.createGain();
+            feedbackNode.gain.value = mix;
+
+            delayNode.connect(feedbackNode);
+            feedbackNode.connect(delayNode);
+            
+            fxInputNode = delayNode;
+            delayNode.connect(currentEntryPoint);
+            break;
+        }
+        case 'panslicer': {
+            const { phase = 0.25, wave = 0, mix = 1 } = options;
+            const panner = context.createStereoPanner();
+            const lfo = context.createOscillator();
+            const gain = context.createGain();
+
+            lfo.type = ['sine', 'sawtooth', 'triangle', 'square'][wave];
+            lfo.frequency.value = 1 / phase;
+            gain.gain.value = mix;
+
+            lfo.connect(gain);
+            gain.connect(panner.pan);
+            lfo.start();
+
+            fxInputNode = panner;
+            panner.connect(currentEntryPoint);
+            break;
+        }
         default:
             console.error(`FX '${fxName}' not found.`);
             await fn();
@@ -166,14 +241,34 @@ export async function with_fx(fxName, options, fn) {
     await fn();
 }
 
+export function control(id, options) {
+  const node = activeNodes[id];
+  if (!node) {
+    return;
+  }
+
+  const now = getAudioContext().currentTime;
+
+  if (options.note) {
+    node.oscillator.frequency.setValueAtTime(getFrequency(options.note), now);
+  }
+  if (options.cutoff) {
+    node.filter.frequency.setValueAtTime(getFrequency(options.cutoff), now);
+  }
+  if (options.pan) {
+    node.panner.pan.setValueAtTime(options.pan, now);
+  }
+}
+
 export function play(note, options = {}) {
   const context = getAudioContext();
   context.resume();
 
   if (Array.isArray(note)) {
-    note.forEach(n => play(n, options));
-    return;
+    return note.map(n => play(n, options));
   }
+
+  const opts = { ...synthDefaults, ...options };
 
   const {
     amp = 1,
@@ -186,7 +281,7 @@ export function play(note, options = {}) {
     cutoff = 130, // MIDI note
     pan = 0,
     synth = currentSynth
-  } = options;
+  } = opts;
 
   const now = context.currentTime;
 
@@ -194,6 +289,9 @@ export function play(note, options = {}) {
   const filter = context.createBiquadFilter();
   const gain = context.createGain();
   const panner = context.createStereoPanner();
+
+  const id = Math.random().toString(36).substring(7);
+  activeNodes[id] = { oscillator, filter, gain, panner };
 
   // Oscillator
   oscillator.type = synth;
@@ -229,11 +327,13 @@ export function play(note, options = {}) {
   // Start and Stop
   oscillator.start(now);
   oscillator.stop(releaseEnd);
+
+  return id;
 }
 
 const sampleCache = {};
 
-async function loadSample(url, context) {
+export async function loadSample(url, context) {
   if (sampleCache[url]) {
     return sampleCache[url];
   }
@@ -244,17 +344,28 @@ async function loadSample(url, context) {
   return decodedAudio;
 }
 
+export async function sample_duration(name) {
+  const context = getAudioContext();
+  const buffer = await loadSample(name, context);
+  return buffer.duration;
+}
+
 export async function sample(name, options = {}) {
   const context = getAudioContext();
   context.resume();
 
   const now = context.currentTime;
-  const { amp = 1, pan = 0, start = 0, end = 1, rate = 1 } = options;
+  const { amp = 1, pan = 0, start = 0, end = 1, rate = 1, beat_stretch = false } = options;
 
   const buffer = await loadSample(name, context);
   const source = context.createBufferSource();
   source.buffer = buffer;
-  source.rate = rate;
+
+  if (beat_stretch) {
+    source.playbackRate.value = (sampleBpm / bpm) * rate;
+  } else {
+    source.playbackRate.value = rate;
+  }
 
   const panner = context.createStereoPanner();
   panner.pan.setValueAtTime(pan, now);
@@ -271,6 +382,12 @@ export async function sample(name, options = {}) {
   const playDuration = (end - start) * duration;
 
   source.start(now, offset, playDuration);
+}
+
+let sampleBpm = 60;
+
+export function use_sample_bpm(val) {
+  sampleBpm = val;
 }
 
 export function sleep(beats) {

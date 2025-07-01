@@ -1,7 +1,7 @@
 // Coded by Sam Aaron
 
 use_bpm(50);
-const lorezzed_notes = (scale('c1', 'minor_pentatonic', { num_octaves: 1 })).shuffle();
+const lorezzed_notes = shuffle(scale('c1', 'minor_pentatonic', { num_octaves: 1 }));
 
 live_loop('lorezzed', async () => {
   with_fx('compressor', { pan: -0.3, amp: 2 }, async () => {

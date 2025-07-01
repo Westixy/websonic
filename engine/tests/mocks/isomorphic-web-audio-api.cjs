@@ -23,23 +23,17 @@ const mockAudioContext = sinon.stub().callsFake(function() {
       }
     }),
     createBiquadFilter: () => ({
-      connect: () => {},
-      frequency: {
-        setValueAtTime: () => {}
-      },
-      Q: {
-        value: 0
-      }
+        connect: () => {},
+        type: 'lowpass',
+        frequency: { value: 350, setValueAtTime: () => {} },
+        Q: { value: 1 },
     }),
     createStereoPanner: () => ({
         connect: () => {},
         pan: {
-            setValueAtTime: () => {}
-        }
-    }),
-    createConvolver: () => ({
-        connect: () => {},
-        buffer: null,
+            value: 0,
+            setValueAtTime: () => {},
+        },
     }),
     createBufferSource: () => ({
         connect: () => {},
@@ -67,6 +61,5 @@ global.fetch = sinon.stub().returns(Promise.resolve({
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
 }));
 
-module.exports = {
-  AudioContext: mockAudioContext,
-};
+module.exports.AudioContext = mockAudioContext;
+

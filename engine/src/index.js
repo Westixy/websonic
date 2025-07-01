@@ -6,12 +6,48 @@ export * from './state.js';
 export * from './examples.js';
 export { getContext } from './getContext.js';
 
-import { init } from './audio.js';
+import { init, loadSample } from './audio.js';
 import { reset_random_seed } from './random.js';
 import { event } from './sync.js';
 
 const activeLoops = {};
 let isRunning = false;
+let debug = false;
+
+export function use_debug(val) {
+  debug = val;
+}
+
+export function load_samples(samples) {
+  const context = getContext();
+  samples.forEach(sample => loadSample(sample, context));
+}
+
+export function at(time, fn) {
+  setTimeout(fn, time * 1000);
+}
+
+export function uncomment(fn) {
+  // No-op
+}
+
+export function factor(a, b) {
+  return a % b === 0;
+}
+
+export function density(n, fn) {
+  const sleepTime = 1 / n;
+  for (let i = 0; i < n; i++) {
+    fn();
+    sleep(sleepTime);
+  }
+}
+
+export function sample_names(category) {
+  const samplesDir = path.join(process.cwd(), 'websonic/public/samples');
+  const files = fs.readdirSync(samplesDir);
+  return files.filter(file => file.startsWith(category));
+}
 
 export function start() {
   stop(); // Stop any previous loops
@@ -35,7 +71,7 @@ export function live_loop(name, fn) {
         await fn();
         event(name);
       } catch (e) {
-        if (e.message !== "stopped") {
+        if (debug && e.message !== "stopped") {
           console.error(`Error in live_loop '${name}':`, e);
         }
         stop();

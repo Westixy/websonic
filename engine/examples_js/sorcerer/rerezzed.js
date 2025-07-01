@@ -1,7 +1,7 @@
 // Coded by Sam Aaron
 
 use_debug(false);
-const rerezzed_notes = (scale('e1', 'minor_pentatonic', { num_octaves: 2 })).shuffle();
+const rerezzed_notes = shuffle(scale('e1', 'minor_pentatonic', { num_octaves: 2 }));
 
 live_loop('rerezzed', async () => {
   reset_tick();

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -9,7 +10,9 @@ export default defineConfig({
   publicDir: 'public',
   server: {
     fs: {
-      allow: ['..'],
+      allow: [
+        path.resolve(__dirname, '..'),
+      ],
     },
   },
 })
