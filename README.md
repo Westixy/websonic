@@ -8,6 +8,8 @@ It is still a toy project in early stages just to play with the audio api and ge
 
 NB: all samples comes directly from [Sonic PI samples](https://github.com/sonic-pi-net/sonic-pi/tree/dev/etc/samples) and examples are direct translations of [Sonic PI examples](https://github.com/sonic-pi-net/sonic-pi/tree/dev/etc/examples) to js
 
+Disclaimer: actually nothing works as expected :D
+
 ## Features
 
 - **Live Coding:** Write and modify code on the fly and hear your changes instantly.
