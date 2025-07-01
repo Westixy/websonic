@@ -1,13 +1,16 @@
 export * from './audio.js';
 export * from './collections.js';
 export * from './random.js';
-export { getAudioContext } from './audio.js';
+export { getContext } from './getContext.js';
+
+import { init } from './audio.js';
 
 const activeLoops = {};
 let isRunning = false;
 
 export function start() {
   stop(); // Stop any previous loops
+  init();
   isRunning = true;
 }
 

@@ -1,6 +1,5 @@
-import { AudioContext } from 'isomorphic-web-audio-api';
+import { getContext } from './getContext.js';
 
-let audioContext;
 let masterGain;
 let currentSynth = 'sine';
 let bpm = 60;
@@ -13,27 +12,32 @@ async function loadImpulseResponse(url) {
   }
   const response = await fetch(url);
   const arrayBuffer = await response.arrayBuffer();
-  const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
+  const decodedAudio = await getContext().decodeAudioData(arrayBuffer);
   impulseResponseCache[url] = decodedAudio;
   return decodedAudio;
 }
 
-export function getAudioContext() {
-  if (!audioContext) {
-    audioContext = new AudioContext();
+function getAudioContext() {
+    const audioContext = getContext();
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    return audioContext;
+}
+
+export function init() {
+    const audioContext = getAudioContext();
+    if (masterGain) {
+        masterGain.disconnect();
+    }
     masterGain = audioContext.createGain();
     masterGain.connect(audioContext.destination);
-    fxChain.push(masterGain);
-  }
-  if (audioContext.state === 'suspended') {
-    audioContext.resume();
-  }
-  return audioContext;
+    fxChain = [masterGain];
 }
 
 export function setMasterVolume(level) {
   if (masterGain) {
-    masterGain.gain.setValueAtTime(level, audioContext.currentTime);
+    masterGain.gain.setValueAtTime(level, getContext().currentTime);
   }
 }
 
@@ -93,11 +97,13 @@ function getCurrentFxNode() {
 
 export async function with_fx(fxName, options, fn) {
     const context = getAudioContext();
-    let fxNode;
+    let fxInputNode;
+
+    const currentEntryPoint = getCurrentFxNode();
 
     switch (fxName) {
         case 'reverb': {
-            const { room = 0.7, mix = 0.5 } = options;
+            const { room = 0.7, mix = 0.5 } = options; // Keep room for compatibility, though unused in new logic
             const impulseUrl = 'https://oramics.github.io/sampled/IR/Voxengo/samples/bottle_hall.wav';
             const impulseBuffer = await loadImpulseResponse(impulseUrl);
             
@@ -110,28 +116,17 @@ export async function with_fx(fxName, options, fn) {
             const dryGain = context.createGain();
             dryGain.gain.value = 1 - mix;
 
-            const inputNode = context.createGain();
-            inputNode.connect(dryGain);
-            inputNode.connect(convolver);
+            const input = context.createGain();
+            input.connect(dryGain);
+            input.connect(convolver);
             convolver.connect(wetGain);
 
-            fxNode = inputNode;
-            const outputNode = context.createGain();
-            dryGain.connect(outputNode);
-            wetGain.connect(outputNode);
+            fxInputNode = input;
+
+            dryGain.connect(currentEntryPoint);
+            wetGain.connect(currentEntryPoint);
             
-            const previousNode = getCurrentFxNode();
-            previousNode.disconnect();
-            previousNode.connect(fxNode);
-            outputNode.connect(masterGain);
-            fxChain.push(fxNode);
-
-            await fn();
-
-            fxChain.pop();
-            previousNode.disconnect();
-            previousNode.connect(getCurrentFxNode());
-            return;
+            break;
         }
         case 'delay': {
             const { time = 0.5, feedback = 0.5 } = options;
@@ -144,7 +139,8 @@ export async function with_fx(fxName, options, fn) {
             delayNode.connect(feedbackNode);
             feedbackNode.connect(delayNode);
             
-            fxNode = delayNode;
+            fxInputNode = delayNode;
+            delayNode.connect(currentEntryPoint);
             break;
         }
         default:
@@ -153,20 +149,15 @@ export async function with_fx(fxName, options, fn) {
             return;
     }
 
-    const previousNode = getCurrentFxNode();
-    previousNode.disconnect();
-    previousNode.connect(fxNode);
-    fxNode.connect(masterGain); // Connect fx to master gain
-    fxChain.push(fxNode);
+    fxChain.push(fxInputNode);
 
     await fn();
-
-    fxChain.pop();
-    previousNode.disconnect();
-    previousNode.connect(getCurrentFxNode());
 }
 
 export function play(note, options = {}) {
+  const context = getAudioContext();
+  context.resume();
+
   if (Array.isArray(note)) {
     note.forEach(n => play(n, options));
     return;
@@ -181,7 +172,6 @@ export function play(note, options = {}) {
     synth = currentSynth
   } = options;
 
-  const context = getAudioContext();
   const now = context.currentTime;
 
   const oscillator = context.createOscillator();
@@ -220,6 +210,8 @@ export function play(note, options = {}) {
 
 export function sample(name, options = {}) {
   const context = getAudioContext();
+  context.resume();
+  
   const now = context.currentTime;
   const { amp = 1, release = 0.5 } = options;
 
@@ -314,11 +306,5 @@ export function sample(name, options = {}) {
 
 export function sleep(beats) {
   const seconds = (60 / bpm) * beats;
-  if (typeof window !== 'undefined') {
-    // Browser environment
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-  } else {
-    // Node.js environment
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-  }
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
 }

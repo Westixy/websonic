@@ -2,8 +2,7 @@
   import { onMount } from 'svelte';
   import { 
     play, sleep, use_synth, setMasterVolume, use_bpm, sample, scale, chord, with_fx, 
-    choose, rrand, ring, tick, look, reset_tick, getAudioContext,
-    start, stop, live_loop
+    choose, rrand, ring, tick, look, reset_tick, getContext, start, stop, live_loop, init
   } from 'websonic-engine';
   import CodeMirror from 'svelte-codemirror-editor';
   import { javascript } from '@codemirror/lang-javascript';
@@ -35,7 +34,6 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   let volume = 0.5;
   let consoleMessages = [];
   let consoleHeight = 200;
-  let audioContextStarted = false;
 
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
@@ -55,6 +53,8 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   }
 
   onMount(() => {
+    init();
+    setMasterVolume(volume);
     // Override console methods to capture logs
     console.log = (...args) => {
       originalConsoleLog(...args);
@@ -79,12 +79,6 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
   }
 
   async function runCode() {
-    if (!audioContextStarted) {
-      getAudioContext();
-      setMasterVolume(volume);
-      audioContextStarted = true;
-    }
-
     if (isUiRunning) {
       stop();
       isUiRunning = false;
@@ -92,6 +86,7 @@ await with_fx('reverb', { room: 0.8, mix: 0.6 }, async () => {
     }
     
     start();
+    setMasterVolume(volume);
     isUiRunning = true;
     consoleMessages = [];
     reset_tick();
